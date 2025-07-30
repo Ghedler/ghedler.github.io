@@ -1,1 +1,311 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#111">
+<title>Big Maxwell – project passport</title>
 
+<!-- font only for labels -->
+<link rel="preload" href="minecraft.ttf" as="font" type="font/ttf" crossorigin>
+
+<style>
+    @font-face{
+        font-family:'Minecraft';
+        src:url('minecraft.ttf') format('truetype');
+        font-display:swap;
+    }
+
+    :root{
+        --accent:#ff7b00;
+        --bg:#0d0d0d;
+        --text:#f2f2f2;
+        --card:#ffffff0f;
+    }
+
+    *{margin:0;padding:0;box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{
+        font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+        color:var(--text);
+        line-height:1.6;
+        background:var(--bg);
+        overflow-x:hidden;
+    }
+
+    /* background with dark overlay */
+    .hero-background{
+        position:fixed;
+        inset:0;
+        z-index:-2;
+        background:url('maxwellbg.png') center/cover;
+    }
+    .hero-background::after{
+        content:'';
+        position:absolute;
+        inset:0;
+        background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.8));
+    }
+
+    /* top spacer */
+    .top-spacer{height:12vh}
+
+    /* carousel -------------- */
+    .carousel-wrapper{
+        position:relative;
+        width:90%;
+        max-width:900px;
+        margin:0 auto 60px;
+    }
+    .carousel-container{
+        border-radius:18px;
+        overflow:hidden;
+        box-shadow:0 10px 40px rgba(0,0,0,.4);
+    }
+    .carousel{
+        display:flex;
+        transition:transform .4s ease;
+    }
+    .carousel img{
+        width:100%;
+        height:50vh;
+        max-height:420px;
+        object-fit:cover;
+        flex-shrink:0;
+        user-select:none;
+    }
+    .carousel-arrow{
+        position:absolute;
+        top:50%;
+        transform:translateY(-50%);
+        width:48px;
+        height:48px;
+        background:rgba(255,255,255,.2);
+        border-radius:50%;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        cursor:pointer;
+        z-index:2;
+        transition:background .3s;
+    }
+    .carousel-arrow:hover{background:rgba(255,255,255,.35)}
+    .carousel-arrow.prev{left:12px}
+    .carousel-arrow.next{right:12px}
+    .carousel-arrow svg{
+        width:24px;height:24px;fill:#fff
+    }
+
+    .carousel-nav{
+        position:absolute;
+        bottom:15px;
+        left:50%;
+        transform:translateX(-50%);
+        display:flex;
+        gap:8px;
+    }
+    .carousel-dot{
+        width:10px;height:10px;
+        border-radius:50%;
+        background:rgba(255,255,255,.4);
+        cursor:pointer;
+        transition:transform .3s,background .3s;
+    }
+    .carousel-dot.active{
+        background:var(--accent);
+        transform:scale(1.3);
+    }
+
+    /* content --------------- */
+    .content-section{
+        display:flex;
+        justify-content:center;
+        align-items:flex-start;
+        gap:clamp(20px,4vw,60px);
+        max-width:1400px;
+        margin:0 auto 120px;
+        padding:0 20px;
+    }
+    .image-wrapper{
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        flex:0 1 260px;
+    }
+    .content-image{
+        width:100%;
+        height:360px;
+        object-fit:cover;
+        border-radius:12px;
+        box-shadow:0 8px 25px rgba(0,0,0,.35);
+
+        /* contour shadow only around non-transparent pixels */
+        filter:drop-shadow(0 0 8px rgba(0,0,0,.7));
+    }
+    .minecraft-label{
+        font-family:'Minecraft',monospace;
+        font-size:1.1rem;
+        letter-spacing:.5px;
+        color:#fff;
+        background:rgba(0,0,0,.55);
+        padding:8px 18px;
+        margin-top:12px;
+        border:1px solid #ffffff22;
+        border-radius:0; /* rectangular */
+        text-align:center;
+        user-select:none;
+    }
+
+    .content-text{
+        flex:1 1 600px;
+        padding:clamp(25px,4vw,50px);
+        background:var(--card);
+        border:1px solid #ffffff14;
+        border-radius:18px;
+        backdrop-filter:blur(10px);
+        box-shadow:0 8px 32px rgba(0,0,0,.25);
+    }
+    .content-text h1{
+        font-size:clamp(1.8rem,5vw,2.6rem);
+        font-weight:700;
+        margin-bottom:20px;
+        line-height:1.25;
+    }
+    .content-text p{
+        font-size:1.1rem;
+        margin-bottom:18px;
+    }
+    .leaders-list h3{
+        font-size:1.2rem;
+        margin:30px 0 12px;
+    }
+    .leaders-list ul{
+        list-style:none;
+        display:flex;
+        flex-direction:column;
+        gap:8px;
+    }
+    .leaders-list li{
+        background:#ffffff0a;
+        padding:10px 15px;
+        border-radius:8px;
+        font-size:1rem;
+    }
+
+    .bottom-gif{
+        text-align:center;
+        padding:40px 0 80px;
+    }
+    .bottom-gif img{
+        width:160px;
+        height:160px;
+        image-rendering:pixelated;
+    }
+
+    /* mobile version */
+    @media(max-width:768px){
+        .carousel-wrapper{width:100%;border-radius:0}
+        .carousel img{height:40vh;border-radius:0}
+        .content-section{
+            flex-direction:column;
+            align-items:center;
+        }
+        .image-wrapper{flex:0 1 220px}
+        .content-image{height:280px}
+    }
+</style>
+</head>
+
+<body>
+    <div class="hero-background"></div>
+    <div class="top-spacer"></div>
+
+    <!-- Carousel -->
+    <div class="carousel-wrapper">
+        <div class="carousel-container">
+            <div class="carousel" id="carousel">
+                <img src="carousel1.png" alt="slide 1">
+                <img src="carousel2.png" alt="slide 2">
+                <img src="carousel3.png" alt="slide 3">
+                <img src="carousel4.png" alt="slide 4">
+            </div>
+            <div class="carousel-nav">
+                <span class="carousel-dot active" data-slide="0"></span>
+                <span class="carousel-dot" data-slide="1"></span>
+                <span class="carousel-dot" data-slide="2"></span>
+                <span class="carousel-dot" data-slide="3"></span>
+            </div>
+        </div>
+
+        <div class="carousel-arrow prev" aria-label="Previous">
+            <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+        </div>
+        <div class="carousel-arrow next" aria-label="Next">
+            <svg viewBox="0 0 24 24"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
+        </div>
+    </div>
+
+    <!-- Main content -->
+    <section class="content-section">
+        <div class="image-wrapper">
+            <img src="kvadr.png" alt="kak0itokvadrattt" class="content-image">
+            <div class="minecraft-label">kak0itokvadrattt</div>
+        </div>
+
+        <div class="content-text">
+            <h1>Большой Максвелл</h1>
+            <p>181 000 блоков, 52 шалкера бетона и 4 дня стройки.</p>
+            <p>Этот чертов котяра больше (и красивее) чем весь спавн в несколько раз.</p>
+            <p>Тарков говно.</p>
+
+            <div class="leaders-list">
+                <h3>Топ донатеров</h3>
+                <ul>
+                    <li>Pelmeshka91 – 3 жареные свинины</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="image-wrapper">
+            <img src="gheliy.png" alt="Gheliy" class="content-image">
+            <div class="minecraft-label">Gheliy</div>
+        </div>
+    </section>
+
+    <div class="bottom-gif">
+        <img src="maxwellspin.gif" alt="Spinning Maxwell">
+    </div>
+
+    <script>
+        /* ---------- carousel ---------- */
+        const carousel = document.getElementById('carousel');
+        const dots  = document.querySelectorAll('.carousel-dot');
+        const prev  = document.querySelector('.carousel-arrow.prev');
+        const next  = document.querySelector('.carousel-arrow.next');
+        const total = dots.length;
+        let current = 0;
+
+        function go(slide){
+            current = (slide + total) % total;
+            carousel.style.transform = `translateX(-${current*100}%)`;
+            dots.forEach((d,i)=>d.classList.toggle('active',i===current));
+        }
+        prev.onclick = () => go(current-1);
+        next.onclick = () => go(current+1);
+        dots.forEach(d=>d.onclick = () => go(+d.dataset.slide));
+
+        /* auto-slide */
+        let timer = setInterval(()=>go(current+1), 5000);
+        carousel.addEventListener('mouseenter',()=>clearInterval(timer));
+        carousel.addEventListener('mouseleave',()=>timer=setInterval(()=>go(current+1),5000));
+
+        /* swipe support */
+        let startX = 0;
+        carousel.addEventListener('touchstart',e=>startX=e.touches[0].clientX);
+        carousel.addEventListener('touchend',e=>{
+            const diff = startX - e.changedTouches[0].clientX;
+            if(Math.abs(diff)>40) diff>0 ? go(current+1) : go(current-1);
+        });
+    </script>
+</body>
+</html>
