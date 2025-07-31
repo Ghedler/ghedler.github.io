@@ -17,7 +17,7 @@
     }
 
     :root{
-        --accent:#ff7b00;
+        --accent:#ffffff;
         --bg:#0d0d0d;
         --text:#f2f2f2;
         --card:#ffffff0f;
@@ -48,7 +48,7 @@
     }
 
     /* top spacer */
-    .top-spacer{height:12vh}
+    .top-spacer{height:4vh}
 
     /* carousel -------------- */
     .carousel-wrapper{
@@ -67,13 +67,12 @@
         transition:transform .4s ease;
     }
     .carousel img{
-        width:100%;
-        height:50vh;
-        max-height:420px;
-        object-fit:cover;
-        flex-shrink:0;
-        user-select:none;
-    }
+    width:100%;
+    aspect-ratio:16 / 10;   /* 16:10 by default */
+    object-fit:cover;
+    flex-shrink:0;
+    user-select:none;
+}
     .carousel-arrow{
         position:absolute;
         top:50%;
@@ -191,7 +190,7 @@
         border-radius:8px;
         font-size:1rem;
     }
-
+    
     .bottom-gif{
         text-align:center;
         padding:40px 0 80px;
@@ -200,6 +199,13 @@
         width:160px;
         height:160px;
         image-rendering:pixelated;
+    }
+    .gif-number{
+    display:inline-block;
+    height:1.1em;          /* same as paragraph font-size */
+    width:auto;
+    vertical-align:-0.15em;/* optically center inside line */
+    image-rendering:pixelated;
     }
 
     /* mobile version */
@@ -254,7 +260,7 @@
 
         <div class="content-text">
             <h1>Большой Максвелл</h1>
-            <p>181 000 блоков, 52 шалкера бетона и 4 дня стройки.</p>
+            <p>128к блоков, <img src="52.gif" alt="52" class="gif-number"> шалкера бетона и 4 дня стройки.</p>
             <p>Этот чертов котяра больше (и красивее) чем весь спавн в несколько раз.</p>
             <p>Тарков говно.</p>
 
@@ -308,4 +314,4 @@
         });
     </script>
 </body>
-</html>
+</html>     
