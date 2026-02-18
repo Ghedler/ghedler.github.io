@@ -24,7 +24,7 @@
                 margin: 0 auto;
             }
 
-            /* Header с игроками */
+
             .players-header {
                 background: rgba(255, 255, 255, 0.05);
                 backdrop-filter: blur(10px);
@@ -345,7 +345,34 @@
                 }
             }
         </style>
-    </head>
+        <style>
+        /* Добавьте к существующим стилям */
+        .slot-area {
+            touch-action: none; /* Предотвращает скролл при таче */
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        .turn-item {
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        /* Визуальный индикатор перетаскивания на тач-устройствах */
+        .touch-dragging {
+            opacity: 0.5;
+            transform: scale(1.1);
+            z-index: 1000;
+            position: relative;
+        }
+        
+        .touch-drag-placeholder {
+            opacity: 0.3;
+            border: 2px dashed rgba(255, 255, 255, 0.5);
+        }
+    </style>
+</head>
     <body>
         <div class="container">
 
@@ -374,276 +401,392 @@
             </div>
         </div>
 
-        <script>
-            // Данные игроков
-            let players = [
-                { id: 1, moves: 0, image: 'images/1.png' },
-                { id: 2, moves: 0, image: 'images/2.png' },
-                { id: 3, moves: 0, image: 'images/3.png' },
-                { id: 4, moves: 0, image: 'images/4.png' },
-                { id: 5, moves: 0, image: 'images/5.png' },
-                { id: 6, moves: 0, image: 'images/6.png' },
-                { id: 7, moves: 0, image: 'images/7.png' },
-                { id: 8, moves: 0, image: 'images/8.png' }
-            ];
+            <script>
+        // Данные игроков
+        let players = [
+            { id: 1, moves: 0, image: 'images/1.png' },
+            { id: 2, moves: 0, image: 'images/2.png' },
+            { id: 3, moves: 0, image: 'images/3.png' },
+            { id: 4, moves: 0, image: 'images/4.png' },
+            { id: 5, moves: 0, image: 'images/5.png' },
+            { id: 6, moves: 0, image: 'images/6.png' },
+            { id: 7, moves: 0, image: 'images/7.png' },
+            { id: 8, moves: 0, image: 'images/8.png' }
+        ];
 
-            let turnSequence = [];
-            let currentTurnIndex = 0;
-            let draggedPlayerIndex = null;
+        let turnSequence = [];
+        let currentTurnIndex = 0;
+        let draggedPlayerIndex = null;
+        
+        // Touch-переменные
+        let touchDragItem = null;
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchCurrentSlot = null;
+        let isTouchDragging = false;
+        let touchDragSourceIndex = null;
 
-            // Инициализация
-            function init() {
-                renderSlots();
-                setupEventListeners();
+        // Проверка на тач-устройство
+        const isTouchDevice = () => {
+            return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        };
+
+        // Инициализация
+        function init() {
+            renderSlots();
+            setupEventListeners();
+        }
+
+        // Рендер слотов
+        function renderSlots() {
+            const container = document.getElementById('slotsContainer');
+            container.innerHTML = '';
+
+            players.forEach((player, index) => {
+                const slot = document.createElement('div');
+                slot.className = 'player-slot';
+                
+                slot.innerHTML = `
+                    <div class="slot-area" 
+                         data-index="${index}"
+                         draggable="true">
+                        <span class="slot-number">${index + 1}</span>
+                        <img src="${player.image}" alt="Player ${player.id}" draggable="false">
+                    </div>
+                    <div class="moves-selector">
+                        ${[0, 1, 2, 3].map(m => `
+                            <button class="move-btn ${player.moves === m ? 'active' : ''}" 
+                                    onclick="setMoves(${index}, ${m})">${m}</button>
+                        `).join('')}
+                    </div>
+                `;
+                
+                const slotArea = slot.querySelector('.slot-area');
+                
+                // Desktop drag & drop
+                slotArea.addEventListener('dragstart', (e) => handleDragStart(e, index));
+                slotArea.addEventListener('dragover', handleDragOver);
+                slotArea.addEventListener('drop', (e) => handleDrop(e, index));
+                slotArea.addEventListener('dragenter', handleDragEnter);
+                slotArea.addEventListener('dragleave', handleDragLeave);
+                
+                // Touch events для мобильных
+                slotArea.addEventListener('touchstart', (e) => handleTouchStart(e, index), { passive: false });
+                slotArea.addEventListener('touchmove', handleTouchMove, { passive: false });
+                slotArea.addEventListener('touchend', handleTouchEnd);
+                slotArea.addEventListener('touchcancel', handleTouchEnd);
+                
+                container.appendChild(slot);
+            });
+        }
+
+        // ========== DESKTOP DRAG & DROP ==========
+        
+        function handleDragStart(e, index) {
+            draggedPlayerIndex = index;
+            e.dataTransfer.effectAllowed = 'move';
+            e.target.classList.add('dragging');
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        }
+
+        function handleDragEnter(e) {
+            e.preventDefault();
+            const slotArea = e.currentTarget;
+            slotArea.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            const slotArea = e.currentTarget;
+            slotArea.classList.remove('drag-over');
+        }
+
+        function handleDrop(e, targetIndex) {
+            e.preventDefault();
+            
+            document.querySelectorAll('.slot-area').forEach(el => {
+                el.classList.remove('drag-over');
+            });
+            document.querySelectorAll('.slot-area').forEach(el => {
+                el.classList.remove('dragging');
+            });
+
+            if (draggedPlayerIndex !== null && draggedPlayerIndex !== targetIndex) {
+                swapPlayers(draggedPlayerIndex, targetIndex);
             }
+            
+            draggedPlayerIndex = null;
+        }
 
-            // Рендер слотов
-            function renderSlots() {
-                const container = document.getElementById('slotsContainer');
-                container.innerHTML = '';
+        // ========== TOUCH DRAG & DROP ==========
+        
+        function handleTouchStart(e, index) {
+            const touch = e.touches[0];
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
+            touchDragSourceIndex = index;
+            isTouchDragging = false;
+            
+            // Запрещаем скролл
+            // e.preventDefault(); // Не вызываем сразу, чтобы не блокировать клики
+        }
 
-                players.forEach((player, index) => {
-                    const slot = document.createElement('div');
-                    slot.className = 'player-slot';
-
-                    slot.innerHTML = `
-                        <div class="slot-area" 
-                            data-index="${index}"
-                            draggable="true"
-                            ondragstart="handleDragStart(event, ${index})"
-                            ondragover="handleDragOver(event)"
-                            ondrop="handleDrop(event, ${index})"
-                            ondragenter="handleDragEnter(event)"
-                            ondragleave="handleDragLeave(event)">
-                            <span class="slot-number">${index + 1}</span>
-                            <img src="${player.image}" alt="Player ${player.id}" draggable="false">
-                        </div>
-                        <div class="moves-selector">
-                            ${[0, 1, 2, 3].map(m => `
-                                <button class="move-btn ${player.moves === m ? 'active' : ''}" 
-                                        onclick="setMoves(${index}, ${m})">${m}</button>
-                            `).join('')}
-                        </div>
-                    `;
-
-                    container.appendChild(slot);
-                });
-
-                // Добавляем обработчики drag для изображений
-                document.querySelectorAll('.slot-area img').forEach((img, index) => {
-                    img.addEventListener('dragstart', (e) => handleDragStart(e, index));
-                });
+        function handleTouchMove(e) {
+            if (touchDragSourceIndex === null) return;
+            
+            const touch = e.touches[0];
+            const deltaX = Math.abs(touch.clientX - touchStartX);
+            const deltaY = Math.abs(touch.clientY - touchStartY);
+            
+            // Начинаем перетаскивание если сдвинулись достаточно
+            if (!isTouchDragging && (deltaX > 10 || deltaY > 10)) {
+                isTouchDragging = true;
+                e.preventDefault(); // Блокируем скролл только при перетаскивании
+                
+                const slotArea = document.querySelector(`.slot-area[data-index="${touchDragSourceIndex}"]`);
+                slotArea.classList.add('touch-dragging');
+                
+                // Создаем визуальный клон для перетаскивания (опционально)
+                createTouchDragGhost(touch);
             }
-
-            // Drag and Drop обработчики
-            function handleDragStart(e, index) {
-                draggedPlayerIndex = index;
-                e.dataTransfer.effectAllowed = 'move';
-                e.target.classList.add('dragging');
-            }
-
-            function handleDragOver(e) {
+            
+            if (isTouchDragging) {
                 e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-            }
-
-            function handleDragEnter(e) {
-                e.preventDefault();
-                const slotArea = e.currentTarget;
-                slotArea.classList.add('drag-over');
-            }
-
-            function handleDragLeave(e) {
-                const slotArea = e.currentTarget;
-                slotArea.classList.remove('drag-over');
-            }
-
-            function handleDrop(e, targetIndex) {
-                e.preventDefault();
-
-                // Убираем подсветку
+                
+                // Находим элемент под пальцем
+                const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+                const slotArea = elementBelow?.closest('.slot-area');
+                
+                // Убираем подсветку со всех
                 document.querySelectorAll('.slot-area').forEach(el => {
                     el.classList.remove('drag-over');
                 });
-                document.querySelectorAll('.slot-area img').forEach(el => {
-                    el.classList.remove('dragging');
+                
+                // Подсвечиваем текущий
+                if (slotArea && slotArea !== document.querySelector(`.slot-area[data-index="${touchDragSourceIndex}"]`)) {
+                    slotArea.classList.add('drag-over');
+                    touchCurrentSlot = parseInt(slotArea.dataset.index);
+                } else {
+                    touchCurrentSlot = null;
+                }
+                
+                updateTouchDragGhost(touch);
+            }
+        }
+
+        function handleTouchEnd(e) {
+            if (!isTouchDragging) {
+                // Это был просто тап, не перетаскивание
+                touchDragSourceIndex = null;
+                return;
+            }
+            
+            // Убираем визуальные эффекты
+            document.querySelectorAll('.slot-area').forEach(el => {
+                el.classList.remove('touch-dragging', 'drag-over');
+            });
+            
+            removeTouchDragGhost();
+            
+            // Выполняем swap если есть цель
+            if (touchCurrentSlot !== null && touchCurrentSlot !== touchDragSourceIndex) {
+                swapPlayers(touchDragSourceIndex, touchCurrentSlot);
+            }
+            
+            // Сброс переменных
+            isTouchDragging = false;
+            touchDragSourceIndex = null;
+            touchCurrentSlot = null;
+        }
+
+        // Визуальный клон для перетаскивания (опционально, для лучшего UX)
+        function createTouchDragGhost(touch) {
+            removeTouchDragGhost();
+            
+            const sourceSlot = document.querySelector(`.slot-area[data-index="${touchDragSourceIndex}"]`);
+            const img = sourceSlot.querySelector('img');
+            
+            touchDragItem = img.cloneNode(true);
+            touchDragItem.style.position = 'fixed';
+            touchDragItem.style.width = '100px';
+            touchDragItem.style.height = '100px';
+            touchDragItem.style.borderRadius = '16px';
+            touchDragItem.style.pointerEvents = 'none';
+            touchDragItem.style.zIndex = '9999';
+            touchDragItem.style.opacity = '0.8';
+            touchDragItem.style.boxShadow = '0 10px 30px rgba(0,0,0,0.5)';
+            touchDragItem.id = 'touch-drag-ghost';
+            
+            updateTouchDragGhost(touch);
+            document.body.appendChild(touchDragItem);
+        }
+
+        function updateTouchDragGhost(touch) {
+            if (touchDragItem) {
+                touchDragItem.style.left = (touch.clientX - 50) + 'px';
+                touchDragItem.style.top = (touch.clientY - 50) + 'px';
+            }
+        }
+
+        function removeTouchDragGhost() {
+            const existing = document.getElementById('touch-drag-ghost');
+            if (existing) existing.remove();
+            touchDragItem = null;
+        }
+
+        // ========== ОБЩИЕ ФУНКЦИИ ==========
+        
+        function swapPlayers(fromIndex, toIndex) {
+            const temp = players[fromIndex];
+            players[fromIndex] = players[toIndex];
+            players[toIndex] = temp;
+            renderSlots();
+        }
+
+        function setMoves(playerIndex, moves) {
+            players[playerIndex].moves = moves;
+            renderSlots();
+        }
+
+        function calculateTurns() {
+            turnSequence = [];
+
+            for (let round = 0; round < 3; round++) {
+                let roundHasMoves = false;
+
+                players.forEach((player, playerIndex) => {
+                    if (round < player.moves) {
+                        turnSequence.push({
+                            playerId: player.id,
+                            playerIndex: playerIndex,
+                            image: player.image,
+                            round: round + 1,
+                            turnInRound: playerIndex + 1
+                        });
+                        roundHasMoves = true;
+                    }
                 });
 
-                if (draggedPlayerIndex !== null && draggedPlayerIndex !== targetIndex) {
-                    // Меняем игроков местами
-                    const temp = players[draggedPlayerIndex];
-                    players[draggedPlayerIndex] = players[targetIndex];
-                    players[targetIndex] = temp;
-
-                    renderSlots();
-                }
-
-                draggedPlayerIndex = null;
+                if (!roundHasMoves) break;
             }
 
-            // Установка количества ходов
-            function setMoves(playerIndex, moves) {
-                players[playerIndex].moves = moves;
-                renderSlots();
-            }
+            return turnSequence;
+        }
 
-            // Расчет порядка ходов
-            function calculateTurns() {
-                turnSequence = [];
+        function renderTurnsTrack() {
+            const track = document.getElementById('turnsTrack');
+            track.innerHTML = '';
 
-                // Максимум 3 круга
-                for (let round = 0; round < 3; round++) {
-                    let roundHasMoves = false;
-
-                    players.forEach((player, playerIndex) => {
-                        // Игрок участвует только в первых n ходах (где n = moves)
-                        if (round < player.moves) {
-                            turnSequence.push({
-                                playerId: player.id,
-                                playerIndex: playerIndex,
-                                image: player.image,
-                                round: round + 1,
-                                turnInRound: playerIndex + 1
-                            });
-                            roundHasMoves = true;
-                        }
-                    });
-
-                    // Если в круге нет ходов, прекращаем
-                    if (!roundHasMoves) break;
-                }
-
-                return turnSequence;
-            }
-
-            // Рендер ленты ходов
-            function renderTurnsTrack() {
-                const track = document.getElementById('turnsTrack');
-                track.innerHTML = '';
-
-                turnSequence.forEach((turn, index) => {
-                    const turnItem = document.createElement('div');
-                    turnItem.className = `turn-item ${index === currentTurnIndex ? 'active' : ''} ${index < currentTurnIndex ? 'passed' : ''}`;
-                    turnItem.innerHTML = `
-                        <img src="${turn.image}" alt="Player ${turn.playerId}">
-                        <span class="turn-number">${index + 1}</span>
-                    `;
-                    track.appendChild(turnItem);
-                });
-
-                updateTrackPosition();
-                updateIndicator();
-            }
-
-            // Обновление позиции ленты - ИСПРАВЛЕНО
-            function updateTrackPosition() {
-                const track = document.getElementById('turnsTrack');
-                const viewport = document.querySelector('.turns-viewport');
-                
-                // Получаем реальные размеры из DOM
-                const itemWidth = 100; // ширина элемента
-                const gap = 15; // отступ между элементами
-                const viewportWidth = viewport.offsetWidth;
-                
-                // Центр viewport
-                const viewportCenter = viewportWidth / 2;
-                
-                // Центр активного элемента относительно начала track
-                // Каждый элемент занимает (itemWidth + gap) пикселей, но gap не добавляется к последнему
-                const activeItemCenter = (currentTurnIndex * (itemWidth + gap)) + (itemWidth / 2);
-                
-                // Смещение = центр viewport - центр активного элемента
-                const offset = viewportCenter - activeItemCenter;
-                
-                track.style.transform = `translateX(${offset}px)`;
-            }
-
-            // Обновление индикатора
-            function updateIndicator() {
-                const indicator = document.getElementById('currentTurnIndicator');
-                if (turnSequence.length === 0) {
-                    indicator.textContent = '';
-                    return;
-                }
-
-                const turn = turnSequence[currentTurnIndex];
-                indicator.innerHTML = `
-                    Ход <span style="font-size: 1.5rem">${currentTurnIndex + 1}</span> из ${turnSequence.length} 
-                    | Игрок ${turn.playerId} | Круг ${turn.round}
+            turnSequence.forEach((turn, index) => {
+                const turnItem = document.createElement('div');
+                turnItem.className = `turn-item ${index === currentTurnIndex ? 'active' : ''} ${index < currentTurnIndex ? 'passed' : ''}`;
+                turnItem.innerHTML = `
+                    <img src="${turn.image}" alt="Player ${turn.playerId}">
+                    <span class="turn-number">${index + 1}</span>
                 `;
+                track.appendChild(turnItem);
+            });
+
+            updateTrackPosition();
+            updateIndicator();
+        }
+
+        function updateTrackPosition() {
+            const track = document.getElementById('turnsTrack');
+            const viewport = document.querySelector('.turns-viewport');
+            
+            const itemWidth = 100;
+            const gap = 15;
+            const viewportWidth = viewport.offsetWidth;
+            const viewportCenter = viewportWidth / 2;
+            const activeItemCenter = (currentTurnIndex * (itemWidth + gap)) + (itemWidth / 2);
+            const offset = viewportCenter - activeItemCenter;
+            
+            track.style.transform = `translateX(${offset}px)`;
+        }
+
+        function updateIndicator() {
+            const indicator = document.getElementById('currentTurnIndicator');
+            if (turnSequence.length === 0) {
+                indicator.textContent = '';
+                return;
             }
 
-            // Навигация
-            function goToTurn(index) {
-                if (index < 0 || index >= turnSequence.length) return;
+            const turn = turnSequence[currentTurnIndex];
+            indicator.innerHTML = `
+                Ход <span style="font-size: 1.5rem">${currentTurnIndex + 1}</span> из ${turnSequence.length} 
+                | Игрок ${turn.playerId} | Круг ${turn.round}
+            `;
+        }
 
-                currentTurnIndex = index;
+        function goToTurn(index) {
+            if (index < 0 || index >= turnSequence.length) return;
 
-                // Обновляем классы элементов
-                const items = document.querySelectorAll('.turn-item');
-                items.forEach((item, i) => {
-                    item.classList.remove('active', 'passed');
-                    if (i === currentTurnIndex) {
-                        item.classList.add('active');
-                    } else if (i < currentTurnIndex) {
-                        item.classList.add('passed');
-                    }
-                });
+            currentTurnIndex = index;
 
-                updateTrackPosition();
-                updateIndicator();
-                updateNavButtons();
-            }
+            const items = document.querySelectorAll('.turn-item');
+            items.forEach((item, i) => {
+                item.classList.remove('active', 'passed');
+                if (i === currentTurnIndex) {
+                    item.classList.add('active');
+                } else if (i < currentTurnIndex) {
+                    item.classList.add('passed');
+                }
+            });
 
-            function updateNavButtons() {
-                document.getElementById('prevBtn').disabled = currentTurnIndex === 0;
-                document.getElementById('nextBtn').disabled = currentTurnIndex === turnSequence.length - 1;
-            }
+            updateTrackPosition();
+            updateIndicator();
+            updateNavButtons();
+        }
 
-            // Обработчики событий
-            function setupEventListeners() {
-                document.getElementById('startBtn').addEventListener('click', () => {
-                    calculateTurns();
-                    currentTurnIndex = 0;
+        function updateNavButtons() {
+            document.getElementById('prevBtn').disabled = currentTurnIndex === 0;
+            document.getElementById('nextBtn').disabled = currentTurnIndex === turnSequence.length - 1;
+        }
 
-                    const turnsSection = document.getElementById('turnsSection');
-                    turnsSection.classList.add('visible');
+        function setupEventListeners() {
+            document.getElementById('startBtn').addEventListener('click', () => {
+                calculateTurns();
+                currentTurnIndex = 0;
 
-                    setTimeout(() => {
-                        renderTurnsTrack();
-                        updateNavButtons();
-                    }, 100);
-                });
+                const turnsSection = document.getElementById('turnsSection');
+                turnsSection.classList.add('visible');
 
-                document.getElementById('prevBtn').addEventListener('click', () => {
+                setTimeout(() => {
+                    renderTurnsTrack();
+                    updateNavButtons();
+                }, 100);
+            });
+
+            document.getElementById('prevBtn').addEventListener('click', () => {
+                goToTurn(currentTurnIndex - 1);
+            });
+
+            document.getElementById('nextBtn').addEventListener('click', () => {
+                goToTurn(currentTurnIndex + 1);
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (!document.getElementById('turnsSection').classList.contains('visible')) return;
+
+                if (e.key === 'ArrowLeft') {
                     goToTurn(currentTurnIndex - 1);
-                });
-
-                document.getElementById('nextBtn').addEventListener('click', () => {
+                } else if (e.key === 'ArrowRight') {
                     goToTurn(currentTurnIndex + 1);
-                });
+                }
+            });
 
-                // Клавиатурная навигация
-                document.addEventListener('keydown', (e) => {
-                    if (!document.getElementById('turnsSection').classList.contains('visible')) return;
+            window.addEventListener('resize', () => {
+                if (turnSequence.length > 0) {
+                    updateTrackPosition();
+                }
+            });
+        }
 
-                    if (e.key === 'ArrowLeft') {
-                        goToTurn(currentTurnIndex - 1);
-                    } else if (e.key === 'ArrowRight') {
-                        goToTurn(currentTurnIndex + 1);
-                    }
-                });
-
-                // Обработка изменения размера окна для корректного центрирования
-                window.addEventListener('resize', () => {
-                    if (turnSequence.length > 0) {
-                        updateTrackPosition();
-                    }
-                });
-            }
-
-            // Запуск
-            init();
-        </script>
+        init();
+    </script>
     </body>
     </html>
