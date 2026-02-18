@@ -1,1 +1,649 @@
+    <!DOCTYPE html>
+    <html lang="ru">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Игровой Трекер Ходов</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
 
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background: linear-gradient(135deg, #464646 0%, #292929 50%, #252525 100%);
+                min-height: 100vh;
+                color: #fff;
+                padding: 20px;
+            }
+
+            .container {
+                max-width: 1400px;
+                margin: 0 auto;
+            }
+
+            /* Header с игроками */
+            .players-header {
+                background: rgba(255, 255, 255, 0.05);
+                backdrop-filter: blur(10px);
+                border-radius: 20px;
+                padding: 30px;
+                margin-bottom: 30px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            }
+
+            .slots-container {
+                display: flex;
+                justify-content: center;
+                gap: 20px;
+                flex-wrap: wrap;
+            }
+
+            .player-slot {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 15px;
+            }
+
+            .slot-area {
+                width: 128px;
+                height: 128px;
+                border-radius: 16px;
+                background: rgba(255, 255, 255, 0.05);
+                border: 2px dashed rgba(255, 255, 255, 0.2);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                position: relative;
+                transition: all 0.3s ease;
+                overflow: hidden;
+            }
+
+            .slot-area.drag-over {
+                border-color: #000000;
+                background: rgba(49, 49, 49, 0.1);
+                transform: scale(1.05);
+            }
+
+            .slot-area img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                border-radius: 14px;
+                cursor: grab;
+                transition: transform 0.2s ease, box-shadow 0.2s ease;
+            }
+
+            .slot-area img:hover {
+                transform: scale(1.05);
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            }
+
+            .slot-area img:active {
+                cursor: grabbing;
+            }
+
+            .slot-number {
+                position: absolute;
+                top: 5px;
+                left: 5px;
+                background: rgba(0, 0, 0, 0.6);
+                color: #fff;
+                width: 24px;
+                height: 24px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 12px;
+                font-weight: bold;
+            }
+
+            /* Кнопки ходов */
+            .moves-selector {
+                display: flex;
+                gap: 8px;
+                background: rgba(0, 0, 0, 0.3);
+                padding: 8px;
+                border-radius: 12px;
+            }
+
+            .move-btn {
+                width: 36px;
+                height: 36px;
+                border: none;
+                border-radius: 8px;
+                background: rgba(255, 255, 255, 0.1);
+                color: #fff;
+                font-weight: bold;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                font-size: 14px;
+            }
+
+            .move-btn:hover {
+                background: rgba(255, 255, 255, 0.2);
+                transform: translateY(-2px);
+            }
+
+            .move-btn.active {
+                background: linear-gradient(135deg, #ffffff, #929292);
+                box-shadow: 0 4px 15px rgba(71, 71, 71, 0.3);
+                transform: scale(1.1);
+            }
+
+            /* Кнопка старта */
+            .start-section {
+                text-align: center;
+                margin: 40px 0;
+            }
+
+            .start-btn {
+                padding: 18px 60px;
+                font-size: 1.3rem;
+                font-weight: bold;
+                border: none;
+                border-radius: 50px;
+                background: linear-gradient(135deg, #ffffff, #929292);
+                color: #fff;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                box-shadow: 0 10px 30px rgba(71, 71, 71, 0.3);
+                text-transform: uppercase;
+                letter-spacing: 2px;
+            }
+
+            .start-btn:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 15px 40px rgba(255, 255, 255, 0.4);
+            }
+
+            .start-btn:active {
+                transform: translateY(-1px);
+            }
+
+            /* Лента ходов */
+            .turns-section {
+                background: rgba(255, 255, 255, 0.05);
+                backdrop-filter: blur(10px);
+                border-radius: 20px;
+                padding: 30px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+                opacity: 0;
+                transform: translateY(20px);
+                transition: all 0.5s ease;
+            }
+
+            .turns-section.visible {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            .turns-header {
+                text-align: center;
+                margin-bottom: 20px;
+                font-size: 1.5rem;
+                color: #fff;
+            }
+
+            .turns-info {
+                text-align: center;
+                margin-bottom: 20px;
+                color: rgba(255, 255, 255, 0.6);
+                font-size: 0.9rem;
+            }
+
+            .turns-container {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 20px;
+                position: relative;
+            }
+
+            .turns-viewport {
+                width: 600px;
+                overflow: hidden;
+                position: relative;
+                border-radius: 16px;
+                background: rgba(0, 0, 0, 0.2);
+                padding: 20px 0;
+            }
+
+            .turns-track {
+                display: flex;
+                gap: 15px;
+                transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                /* Убрали padding, будем считать через JS */
+                padding: 0;
+            }
+
+            .turn-item {
+                flex-shrink: 0;
+                width: 100px;
+                height: 100px;
+                border-radius: 16px;
+                overflow: hidden;
+                position: relative;
+                transition: all 0.3s ease;
+                opacity: 0.5;
+                transform: scale(0.9);
+            }
+
+            .turn-item img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+
+            .turn-item.active {
+                opacity: 1;
+                transform: scale(1.2);
+                box-shadow: 0 0 30px rgba(75, 75, 75, 0.6), 0 0 60px rgba(78, 78, 78, 0.3);
+                z-index: 10;
+                border: 3px solid #bebebe;
+            }
+
+            .turn-item.passed {
+                opacity: 0.3;
+                filter: grayscale(0.5);
+            }
+
+            .turn-number {
+                position: absolute;
+                bottom: 5px;
+                right: 5px;
+                background: rgba(0, 0, 0, 0.7);
+                color: #fff;
+                padding: 2px 8px;
+                border-radius: 10px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+
+            /* Навигационные кнопки */
+            .nav-btn {
+                width: 60px;
+                height: 60px;
+                border: none;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.1);
+                color: #fff;
+                font-size: 24px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                backdrop-filter: blur(10px);
+            }
+
+            .nav-btn:hover {
+                background: rgba(102, 102, 102, 0.8);
+                transform: scale(1.1);
+            }
+
+            .nav-btn:disabled {
+                opacity: 0.3;
+                cursor: not-allowed;
+                background: rgba(255, 255, 255, 0.05);
+            }
+
+            .nav-btn:disabled:hover {
+                transform: scale(1);
+            }
+
+            /* Индикатор текущего хода */
+            .current-turn-indicator {
+                text-align: center;
+                margin-top: 20px;
+                font-size: 1.2rem;
+                color: #686868;
+                font-weight: bold;
+            }
+
+            /* Placeholder для пустых слотов */
+            .empty-slot-placeholder {
+                width: 100%;
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: rgba(255, 255, 255, 0.3);
+                font-size: 48px;
+                font-weight: bold;
+            }
+
+            /* Drag ghost */
+            .dragging {
+                opacity: 0.5;
+            }
+
+            /* Адаптивность */
+            @media (max-width: 768px) {
+                .slots-container {
+                    gap: 10px;
+                }
+
+                .slot-area {
+                    width: 80px;
+                    height: 80px;
+                }
+
+                .turns-viewport {
+                    width: 300px;
+                }
+
+                .turn-item {
+                    width: 70px;
+                    height: 70px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+
+            <!-- Header с игроками -->
+            <div class="players-header">
+                <div class="slots-container" id="slotsContainer">
+                    <!-- Слоты будут созданы через JS -->
+                </div>
+            </div>
+
+            <!-- Кнопка старта -->
+            <div class="start-section">
+                <button class="start-btn" id="startBtn">Начать ходы</button>
+            </div>
+
+            <!-- Лента ходов -->
+            <div class="turns-section" id="turnsSection">
+                <div class="turns-container">
+                    <button class="nav-btn" id="prevBtn">◀</button>
+                    <div class="turns-viewport">
+                        <div class="turns-track" id="turnsTrack"></div>
+                    </div>
+                    <button class="nav-btn" id="nextBtn">▶</button>
+                </div>
+                <div class="current-turn-indicator" id="currentTurnIndicator"></div>
+            </div>
+        </div>
+
+        <script>
+            // Данные игроков
+            let players = [
+                { id: 1, moves: 0, image: 'images/1.png' },
+                { id: 2, moves: 0, image: 'images/2.png' },
+                { id: 3, moves: 0, image: 'images/3.png' },
+                { id: 4, moves: 0, image: 'images/4.png' },
+                { id: 5, moves: 0, image: 'images/5.png' },
+                { id: 6, moves: 0, image: 'images/6.png' },
+                { id: 7, moves: 0, image: 'images/7.png' },
+                { id: 8, moves: 0, image: 'images/8.png' }
+            ];
+
+            let turnSequence = [];
+            let currentTurnIndex = 0;
+            let draggedPlayerIndex = null;
+
+            // Инициализация
+            function init() {
+                renderSlots();
+                setupEventListeners();
+            }
+
+            // Рендер слотов
+            function renderSlots() {
+                const container = document.getElementById('slotsContainer');
+                container.innerHTML = '';
+
+                players.forEach((player, index) => {
+                    const slot = document.createElement('div');
+                    slot.className = 'player-slot';
+
+                    slot.innerHTML = `
+                        <div class="slot-area" 
+                            data-index="${index}"
+                            draggable="true"
+                            ondragstart="handleDragStart(event, ${index})"
+                            ondragover="handleDragOver(event)"
+                            ondrop="handleDrop(event, ${index})"
+                            ondragenter="handleDragEnter(event)"
+                            ondragleave="handleDragLeave(event)">
+                            <span class="slot-number">${index + 1}</span>
+                            <img src="${player.image}" alt="Player ${player.id}" draggable="false">
+                        </div>
+                        <div class="moves-selector">
+                            ${[0, 1, 2, 3].map(m => `
+                                <button class="move-btn ${player.moves === m ? 'active' : ''}" 
+                                        onclick="setMoves(${index}, ${m})">${m}</button>
+                            `).join('')}
+                        </div>
+                    `;
+
+                    container.appendChild(slot);
+                });
+
+                // Добавляем обработчики drag для изображений
+                document.querySelectorAll('.slot-area img').forEach((img, index) => {
+                    img.addEventListener('dragstart', (e) => handleDragStart(e, index));
+                });
+            }
+
+            // Drag and Drop обработчики
+            function handleDragStart(e, index) {
+                draggedPlayerIndex = index;
+                e.dataTransfer.effectAllowed = 'move';
+                e.target.classList.add('dragging');
+            }
+
+            function handleDragOver(e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+            }
+
+            function handleDragEnter(e) {
+                e.preventDefault();
+                const slotArea = e.currentTarget;
+                slotArea.classList.add('drag-over');
+            }
+
+            function handleDragLeave(e) {
+                const slotArea = e.currentTarget;
+                slotArea.classList.remove('drag-over');
+            }
+
+            function handleDrop(e, targetIndex) {
+                e.preventDefault();
+
+                // Убираем подсветку
+                document.querySelectorAll('.slot-area').forEach(el => {
+                    el.classList.remove('drag-over');
+                });
+                document.querySelectorAll('.slot-area img').forEach(el => {
+                    el.classList.remove('dragging');
+                });
+
+                if (draggedPlayerIndex !== null && draggedPlayerIndex !== targetIndex) {
+                    // Меняем игроков местами
+                    const temp = players[draggedPlayerIndex];
+                    players[draggedPlayerIndex] = players[targetIndex];
+                    players[targetIndex] = temp;
+
+                    renderSlots();
+                }
+
+                draggedPlayerIndex = null;
+            }
+
+            // Установка количества ходов
+            function setMoves(playerIndex, moves) {
+                players[playerIndex].moves = moves;
+                renderSlots();
+            }
+
+            // Расчет порядка ходов
+            function calculateTurns() {
+                turnSequence = [];
+
+                // Максимум 3 круга
+                for (let round = 0; round < 3; round++) {
+                    let roundHasMoves = false;
+
+                    players.forEach((player, playerIndex) => {
+                        // Игрок участвует только в первых n ходах (где n = moves)
+                        if (round < player.moves) {
+                            turnSequence.push({
+                                playerId: player.id,
+                                playerIndex: playerIndex,
+                                image: player.image,
+                                round: round + 1,
+                                turnInRound: playerIndex + 1
+                            });
+                            roundHasMoves = true;
+                        }
+                    });
+
+                    // Если в круге нет ходов, прекращаем
+                    if (!roundHasMoves) break;
+                }
+
+                return turnSequence;
+            }
+
+            // Рендер ленты ходов
+            function renderTurnsTrack() {
+                const track = document.getElementById('turnsTrack');
+                track.innerHTML = '';
+
+                turnSequence.forEach((turn, index) => {
+                    const turnItem = document.createElement('div');
+                    turnItem.className = `turn-item ${index === currentTurnIndex ? 'active' : ''} ${index < currentTurnIndex ? 'passed' : ''}`;
+                    turnItem.innerHTML = `
+                        <img src="${turn.image}" alt="Player ${turn.playerId}">
+                        <span class="turn-number">${index + 1}</span>
+                    `;
+                    track.appendChild(turnItem);
+                });
+
+                updateTrackPosition();
+                updateIndicator();
+            }
+
+            // Обновление позиции ленты - ИСПРАВЛЕНО
+            function updateTrackPosition() {
+                const track = document.getElementById('turnsTrack');
+                const viewport = document.querySelector('.turns-viewport');
+                
+                // Получаем реальные размеры из DOM
+                const itemWidth = 100; // ширина элемента
+                const gap = 15; // отступ между элементами
+                const viewportWidth = viewport.offsetWidth;
+                
+                // Центр viewport
+                const viewportCenter = viewportWidth / 2;
+                
+                // Центр активного элемента относительно начала track
+                // Каждый элемент занимает (itemWidth + gap) пикселей, но gap не добавляется к последнему
+                const activeItemCenter = (currentTurnIndex * (itemWidth + gap)) + (itemWidth / 2);
+                
+                // Смещение = центр viewport - центр активного элемента
+                const offset = viewportCenter - activeItemCenter;
+                
+                track.style.transform = `translateX(${offset}px)`;
+            }
+
+            // Обновление индикатора
+            function updateIndicator() {
+                const indicator = document.getElementById('currentTurnIndicator');
+                if (turnSequence.length === 0) {
+                    indicator.textContent = '';
+                    return;
+                }
+
+                const turn = turnSequence[currentTurnIndex];
+                indicator.innerHTML = `
+                    Ход <span style="font-size: 1.5rem">${currentTurnIndex + 1}</span> из ${turnSequence.length} 
+                    | Игрок ${turn.playerId} | Круг ${turn.round}
+                `;
+            }
+
+            // Навигация
+            function goToTurn(index) {
+                if (index < 0 || index >= turnSequence.length) return;
+
+                currentTurnIndex = index;
+
+                // Обновляем классы элементов
+                const items = document.querySelectorAll('.turn-item');
+                items.forEach((item, i) => {
+                    item.classList.remove('active', 'passed');
+                    if (i === currentTurnIndex) {
+                        item.classList.add('active');
+                    } else if (i < currentTurnIndex) {
+                        item.classList.add('passed');
+                    }
+                });
+
+                updateTrackPosition();
+                updateIndicator();
+                updateNavButtons();
+            }
+
+            function updateNavButtons() {
+                document.getElementById('prevBtn').disabled = currentTurnIndex === 0;
+                document.getElementById('nextBtn').disabled = currentTurnIndex === turnSequence.length - 1;
+            }
+
+            // Обработчики событий
+            function setupEventListeners() {
+                document.getElementById('startBtn').addEventListener('click', () => {
+                    calculateTurns();
+                    currentTurnIndex = 0;
+
+                    const turnsSection = document.getElementById('turnsSection');
+                    turnsSection.classList.add('visible');
+
+                    setTimeout(() => {
+                        renderTurnsTrack();
+                        updateNavButtons();
+                    }, 100);
+                });
+
+                document.getElementById('prevBtn').addEventListener('click', () => {
+                    goToTurn(currentTurnIndex - 1);
+                });
+
+                document.getElementById('nextBtn').addEventListener('click', () => {
+                    goToTurn(currentTurnIndex + 1);
+                });
+
+                // Клавиатурная навигация
+                document.addEventListener('keydown', (e) => {
+                    if (!document.getElementById('turnsSection').classList.contains('visible')) return;
+
+                    if (e.key === 'ArrowLeft') {
+                        goToTurn(currentTurnIndex - 1);
+                    } else if (e.key === 'ArrowRight') {
+                        goToTurn(currentTurnIndex + 1);
+                    }
+                });
+
+                // Обработка изменения размера окна для корректного центрирования
+                window.addEventListener('resize', () => {
+                    if (turnSequence.length > 0) {
+                        updateTrackPosition();
+                    }
+                });
+            }
+
+            // Запуск
+            init();
+        </script>
+    </body>
+    </html>
