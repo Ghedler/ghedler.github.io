@@ -344,38 +344,94 @@
                     height: 70px;
                 }
             }
-        </style>
-        <style>
-        /* Добавьте к существующим стилям */
-        .slot-area {
-            touch-action: none; /* Предотвращает скролл при таче */
-            -webkit-user-select: none;
-            user-select: none;
-        }
-        
-        .turn-item {
-            touch-action: none;
-            -webkit-user-select: none;
-            user-select: none;
-        }
-        
-        /* Визуальный индикатор перетаскивания на тач-устройствах */
-        .touch-dragging {
-            opacity: 0.5;
-            transform: scale(1.1);
-            z-index: 1000;
-            position: relative;
-        }
-        
-        .touch-drag-placeholder {
-            opacity: 0.3;
-            border: 2px dashed rgba(255, 255, 255, 0.5);
-        }
-    </style>
-</head>
-    <body>
-        <div class="container">
+            .slot-area {
+                touch-action: none; /* Предотвращает скролл при таче */
+                -webkit-user-select: none;
+                user-select: none;
+            }
+            
+            .turn-item {
+                touch-action: none;
+                -webkit-user-select: none;
+                user-select: none;
+            }
+            
+            /* Визуальный индикатор перетаскивания на тач-устройствах */
+            .touch-dragging {
+                opacity: 0.5;
+                transform: scale(1.1);
+                z-index: 1000;
+                position: relative;
+            }
+            
+            .touch-drag-placeholder {
+                opacity: 0.3;
+                border: 2px dashed rgba(255, 255, 255, 0.5);
+            }
+                    /* Кнопка переключения режима */
+            .mode-toggle {
+                position: fixed;
+                top: 20px;
+                left: 20px;
+                z-index: 1000;
+            }
 
+            .mode-btn {
+                width: 30px;
+                height: 30px;
+                border: none;
+                border-radius: 12px;
+                background: linear-gradient(135deg, #ffffff, #929292);
+                color: #292929;
+                font-weight: bold;
+                font-size: 16px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .mode-btn:hover {
+                transform: scale(1);
+                box-shadow: 0 6px 20px rgba(255, 255, 255, 0.3);
+            }
+
+            .mode-btn:active {
+                transform: scale(0.95);
+            }
+
+            /* Фиксированный 8-й слот */
+            .slot-area.fixed {
+                border-color: rgba(255, 255, 255, 0.5);
+                background: rgba(255, 255, 255, 0.1);
+            }
+
+            .slot-area.fixed img {
+                cursor: default;
+            }
+
+            .slot-area.fixed::after {
+                content: '';
+                position: absolute;
+                top: 5px;
+                right: 5px;
+                font-size: 16px;
+            }
+
+            /* Скрытые слоты в режиме 6 игроков */
+            .player-slot.hidden {
+                display: none;
+            }
+            </style>
+</head>
+        <body>
+        <div class="mode-toggle">
+            <button class="mode-btn" id="modeBtn" onclick="toggleMode()">8</button>
+        </div>
+
+        <div class="container">
             <!-- Header с игроками -->
             <div class="players-header">
                 <div class="slots-container" id="slotsContainer">
@@ -401,7 +457,10 @@
             </div>
         </div>
 
-            <script>
+                <script>
+        // Режим игры: 6 или 8 игроков
+        let gameMode = 8;
+        
         // Данные игроков
         let players = [
             { id: 1, moves: 0, image: 'images/1.png' },
@@ -426,15 +485,40 @@
         let isTouchDragging = false;
         let touchDragSourceIndex = null;
 
-        // Проверка на тач-устройство
-        const isTouchDevice = () => {
-            return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-        };
-
         // Инициализация
         function init() {
             renderSlots();
             setupEventListeners();
+        }
+
+        // Переключение режима
+        function toggleMode() {
+            gameMode = gameMode === 8 ? 6 : 8;
+            document.getElementById('modeBtn').textContent = gameMode;
+            
+            // Сбрасываем ленту ходов при смене режима
+            document.getElementById('turnsSection').classList.remove('visible');
+            turnSequence = [];
+            
+            renderSlots();
+        }
+
+        // Проверка можно ли перетаскивать игрока
+        function canDrag(index) {
+            // 8-й игрок (индекс 7) нельзя перетаскивать
+            if (index === 7) return false;
+            // В режиме 6 игроков, игроки 7 и 8 (индексы 6,7) недоступны
+            if (gameMode === 6 && index >= 6) return false;
+            return true;
+        }
+
+        // Проверка можно ли сбросить на этот слот
+        function canDrop(targetIndex) {
+            // На 8-й слот (индекс 7) нельзя сбрасывать
+            if (targetIndex === 7) return false;
+            // В режиме 6 игроков, слоты 7 и 8 недоступны
+            if (gameMode === 6 && targetIndex >= 6) return false;
+            return true;
         }
 
         // Рендер слотов
@@ -446,14 +530,23 @@
                 const slot = document.createElement('div');
                 slot.className = 'player-slot';
                 
+                // В режиме 6 игроков скрываем слоты 7 и 8
+                if (gameMode === 6 && index >= 6) {
+                    slot.classList.add('hidden');
+                }
+                
+                const isFixed = index === 7; // 8-й игрок фиксирован
+                const canDragPlayer = canDrag(index);
+                
                 slot.innerHTML = `
-                    <div class="slot-area" 
+                    <div class="slot-area ${isFixed ? 'fixed' : ''}" 
                          data-index="${index}"
-                         draggable="true">
+                         draggable="${canDragPlayer}"
+                         style="${!canDragPlayer ? 'cursor: default;' : ''}">
                         <span class="slot-number">${index + 1}</span>
                         <img src="${player.image}" alt="Player ${player.id}" draggable="false">
                     </div>
-                    <div class="moves-selector">
+                    <div class="moves-selector" style="${gameMode === 6 && index >= 6 ? 'display: none;' : ''}">
                         ${[0, 1, 2, 3].map(m => `
                             <button class="move-btn ${player.moves === m ? 'active' : ''}" 
                                     onclick="setMoves(${index}, ${m})">${m}</button>
@@ -463,18 +556,20 @@
                 
                 const slotArea = slot.querySelector('.slot-area');
                 
-                // Desktop drag & drop
-                slotArea.addEventListener('dragstart', (e) => handleDragStart(e, index));
-                slotArea.addEventListener('dragover', handleDragOver);
-                slotArea.addEventListener('drop', (e) => handleDrop(e, index));
-                slotArea.addEventListener('dragenter', handleDragEnter);
-                slotArea.addEventListener('dragleave', handleDragLeave);
-                
-                // Touch events для мобильных
-                slotArea.addEventListener('touchstart', (e) => handleTouchStart(e, index), { passive: false });
-                slotArea.addEventListener('touchmove', handleTouchMove, { passive: false });
-                slotArea.addEventListener('touchend', handleTouchEnd);
-                slotArea.addEventListener('touchcancel', handleTouchEnd);
+                // Desktop drag & drop (только для перетаскиваемых)
+                if (canDragPlayer) {
+                    slotArea.addEventListener('dragstart', (e) => handleDragStart(e, index));
+                    slotArea.addEventListener('dragover', handleDragOver);
+                    slotArea.addEventListener('drop', (e) => handleDrop(e, index));
+                    slotArea.addEventListener('dragenter', handleDragEnter);
+                    slotArea.addEventListener('dragleave', handleDragLeave);
+                    
+                    // Touch events для мобильных
+                    slotArea.addEventListener('touchstart', (e) => handleTouchStart(e, index), { passive: false });
+                    slotArea.addEventListener('touchmove', handleTouchMove, { passive: false });
+                    slotArea.addEventListener('touchend', handleTouchEnd);
+                    slotArea.addEventListener('touchcancel', handleTouchEnd);
+                }
                 
                 container.appendChild(slot);
             });
@@ -483,6 +578,10 @@
         // ========== DESKTOP DRAG & DROP ==========
         
         function handleDragStart(e, index) {
+            if (!canDrag(index)) {
+                e.preventDefault();
+                return;
+            }
             draggedPlayerIndex = index;
             e.dataTransfer.effectAllowed = 'move';
             e.target.classList.add('dragging');
@@ -490,13 +589,21 @@
 
         function handleDragOver(e) {
             e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
+            const targetIndex = parseInt(e.currentTarget.dataset.index);
+            if (canDrop(targetIndex)) {
+                e.dataTransfer.dropEffect = 'move';
+            } else {
+                e.dataTransfer.dropEffect = 'none';
+            }
         }
 
         function handleDragEnter(e) {
             e.preventDefault();
             const slotArea = e.currentTarget;
-            slotArea.classList.add('drag-over');
+            const targetIndex = parseInt(slotArea.dataset.index);
+            if (canDrop(targetIndex)) {
+                slotArea.classList.add('drag-over');
+            }
         }
 
         function handleDragLeave(e) {
@@ -514,7 +621,9 @@
                 el.classList.remove('dragging');
             });
 
-            if (draggedPlayerIndex !== null && draggedPlayerIndex !== targetIndex) {
+            if (draggedPlayerIndex !== null && 
+                draggedPlayerIndex !== targetIndex && 
+                canDrop(targetIndex)) {
                 swapPlayers(draggedPlayerIndex, targetIndex);
             }
             
@@ -524,14 +633,13 @@
         // ========== TOUCH DRAG & DROP ==========
         
         function handleTouchStart(e, index) {
+            if (!canDrag(index)) return;
+            
             const touch = e.touches[0];
             touchStartX = touch.clientX;
             touchStartY = touch.clientY;
             touchDragSourceIndex = index;
             isTouchDragging = false;
-            
-            // Запрещаем скролл
-            // e.preventDefault(); // Не вызываем сразу, чтобы не блокировать клики
         }
 
         function handleTouchMove(e) {
@@ -541,34 +649,34 @@
             const deltaX = Math.abs(touch.clientX - touchStartX);
             const deltaY = Math.abs(touch.clientY - touchStartY);
             
-            // Начинаем перетаскивание если сдвинулись достаточно
             if (!isTouchDragging && (deltaX > 10 || deltaY > 10)) {
                 isTouchDragging = true;
-                e.preventDefault(); // Блокируем скролл только при перетаскивании
+                e.preventDefault();
                 
                 const slotArea = document.querySelector(`.slot-area[data-index="${touchDragSourceIndex}"]`);
                 slotArea.classList.add('touch-dragging');
                 
-                // Создаем визуальный клон для перетаскивания (опционально)
                 createTouchDragGhost(touch);
             }
             
             if (isTouchDragging) {
                 e.preventDefault();
                 
-                // Находим элемент под пальцем
                 const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
                 const slotArea = elementBelow?.closest('.slot-area');
                 
-                // Убираем подсветку со всех
                 document.querySelectorAll('.slot-area').forEach(el => {
                     el.classList.remove('drag-over');
                 });
                 
-                // Подсвечиваем текущий
-                if (slotArea && slotArea !== document.querySelector(`.slot-area[data-index="${touchDragSourceIndex}"]`)) {
-                    slotArea.classList.add('drag-over');
-                    touchCurrentSlot = parseInt(slotArea.dataset.index);
+                if (slotArea) {
+                    const targetIndex = parseInt(slotArea.dataset.index);
+                    if (canDrop(targetIndex) && targetIndex !== touchDragSourceIndex) {
+                        slotArea.classList.add('drag-over');
+                        touchCurrentSlot = targetIndex;
+                    } else {
+                        touchCurrentSlot = null;
+                    }
                 } else {
                     touchCurrentSlot = null;
                 }
@@ -579,30 +687,27 @@
 
         function handleTouchEnd(e) {
             if (!isTouchDragging) {
-                // Это был просто тап, не перетаскивание
                 touchDragSourceIndex = null;
                 return;
             }
             
-            // Убираем визуальные эффекты
             document.querySelectorAll('.slot-area').forEach(el => {
                 el.classList.remove('touch-dragging', 'drag-over');
             });
             
             removeTouchDragGhost();
             
-            // Выполняем swap если есть цель
-            if (touchCurrentSlot !== null && touchCurrentSlot !== touchDragSourceIndex) {
+            if (touchCurrentSlot !== null && 
+                touchCurrentSlot !== touchDragSourceIndex && 
+                canDrop(touchCurrentSlot)) {
                 swapPlayers(touchDragSourceIndex, touchCurrentSlot);
             }
             
-            // Сброс переменных
             isTouchDragging = false;
             touchDragSourceIndex = null;
             touchCurrentSlot = null;
         }
 
-        // Визуальный клон для перетаскивания (опционально, для лучшего UX)
         function createTouchDragGhost(touch) {
             removeTouchDragGhost();
             
@@ -640,6 +745,10 @@
         // ========== ОБЩИЕ ФУНКЦИИ ==========
         
         function swapPlayers(fromIndex, toIndex) {
+            // Дополнительная проверка безопасности
+            if (fromIndex === 7 || toIndex === 7) return;
+            if (gameMode === 6 && (fromIndex >= 6 || toIndex >= 6)) return;
+            
             const temp = players[fromIndex];
             players[fromIndex] = players[toIndex];
             players[toIndex] = temp;
@@ -647,17 +756,23 @@
         }
 
         function setMoves(playerIndex, moves) {
+            if (gameMode === 6 && playerIndex >= 6) return;
             players[playerIndex].moves = moves;
             renderSlots();
         }
 
         function calculateTurns() {
             turnSequence = [];
+            
+            const maxPlayers = gameMode === 6 ? 6 : 8;
 
             for (let round = 0; round < 3; round++) {
                 let roundHasMoves = false;
 
                 players.forEach((player, playerIndex) => {
+                    // Учитываем только активных игроков
+                    if (playerIndex >= maxPlayers) return;
+                    
                     if (round < player.moves) {
                         turnSequence.push({
                             playerId: player.id,
